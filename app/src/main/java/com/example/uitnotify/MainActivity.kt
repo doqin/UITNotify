@@ -22,6 +22,8 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -50,11 +52,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat.startActivity
+import androidx.work.PeriodicWorkRequest
+import androidx.work.WorkManager
 import com.example.uitnotify.ui.theme.UITNotifyTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
+import java.util.concurrent.TimeUnit
 
 // Data class to hold article information
 data class ArticleData(
@@ -70,32 +75,13 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         // enableEdgeToEdge()
         createNotificationChannel(this)
-        requestNotificationPermission()
         setContent {
             UITNotifyTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Column {
-                        BannerComposable(modifier = Modifier.padding(innerPadding))
-                        Column(
-                            modifier = Modifier
-                                .verticalScroll(rememberScrollState())
-                        ) {
-                            ArticleComposable(
-                                url = "https://student.uit.edu.vn/thong-bao-chung",
-                                index = 0,
-                                modifier = Modifier.padding(innerPadding)
-                            )
-                            for (i in 1 until 5) {
-                                ArticleComposable(
-                                    url = "https://student.uit.edu.vn/thong-bao-chung",
-                                    index = i,
-                                )
-                            }
-                        }
-                    }
-                }
+                MainScreen()
             }
         }
+        requestNotificationPermission()
+        schedulePeriodicArticleDownload(this)
     }
 
     private val requestPermissionLauncher = registerForActivityResult(
@@ -115,20 +101,54 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// Banner composable function
 @Composable
-fun BannerComposable(modifier: Modifier = Modifier) {
-    var articleData by remember { mutableStateOf(ArticleData()) }
-
+fun MainScreen() {
+    var articles by remember { mutableStateOf<List<Article>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
     val context = LocalContext.current
 
     LaunchedEffect(Unit) {
-        val result = getArticleText("https://student.uit.edu.vn/thong-bao-chung", 0)
-        articleData = result
+        val articleDao = AppDatabase.getDatabase(context).articleDao()
+        articles = articleDao.getAllArticles()
+        withContext(Dispatchers.IO) {
+            try {
+                articles = articleDao.getAllArticles()
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Error fetching articles", e)
+            }
+        }
+        isLoading = false
     }
 
+    Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+        Column(Modifier.padding(innerPadding)) {
+            BannerComposable()
+            if (isLoading) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            } else if (articles.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(text = "No articles found")
+                }
+            } else {
+                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    items(articles) { article ->
+                        ArticleItem(article = article)
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Banner composable function
+@Composable
+fun BannerComposable(modifier: Modifier = Modifier) {
     Box(
-        modifier = Modifier.fillMaxWidth().background(surfaceColor()),
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(surfaceColor()),
     ) {
         Text(
             text = "UIT Notify",
@@ -138,89 +158,51 @@ fun BannerComposable(modifier: Modifier = Modifier) {
             fontFamily = FontFamily.Default,
             letterSpacing = 0.1.sp
         )
-        Button(
-            onClick = {
-                sendNotification(context, "${articleData.header}", "${articleData.date}\n${articleData.content}")
-            },
-            modifier = Modifier.align(Alignment.CenterEnd)
-        ) {
-            Text(text = "Test")
-        }
     }
 }
 
 // Article composable function
 @Composable
-fun ArticleComposable(url: String, index: Int, modifier: Modifier = Modifier) {
-    var articleData by remember { mutableStateOf(ArticleData()) }
-    var isLoading by remember { mutableStateOf(true) }
-    var clickCount by remember { mutableStateOf(0) }
-
+fun ArticleItem(article: Article) {
+    val context = LocalContext.current
     val interactionSource = remember { MutableInteractionSource() }
     val indication = rememberRipple(bounded = true)
-    val context = LocalContext.current
-
-    LaunchedEffect(url, index) {
-        isLoading = true
-        val result = getArticleText(url, index)
-        articleData = result
-        isLoading = false
-    }
-
-    Box {
-        if (isLoading) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
-        } else if (articleData.error != null) {
+    Surface(
+        modifier = Modifier
+            .padding(16.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(
+                onClick = {
+                    openUrlInBrowser(context, article.url)
+                },
+                interactionSource = interactionSource,
+                indication = indication,
+            ),
+        shape = RoundedCornerShape(8.dp),
+        color = surfaceColor()
+    )   {
+        Column(
+            modifier = Modifier
+                .padding(
+                    vertical = 16.dp,
+                    horizontal = 16.dp
+                )
+        ) {
             Text(
-                text = "Error: ${articleData.error}",
-                modifier = modifier,
+                text = article.header,
+                color = Color(0xFFB94A48),
+                fontSize = 19.sp
             )
-        } else {
-            Surface(
-                modifier = Modifier
-                    .padding(16.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .clickable(
-                        onClick = {
-                            clickCount++
-                            Log.d("ArticleComposable", "URL to open: ${articleData.url}")
-                            articleData.url?.let { openUrlInBrowser(context, it) }
-                        },
-                        interactionSource = interactionSource,
-                        indication = indication,
-                    ),
-                shape = RoundedCornerShape(8.dp),
-                color = surfaceColor()
-            )   {
-                Column(
-                    modifier = Modifier
-                        .padding(
-                            vertical = 16.dp,
-                            horizontal = 16.dp
-                        )
-                ) {
-                    // Header text
-                    Text(
-                        text = "${articleData.header}",
-                        color = Color(0xFFB94A48),
-                        fontSize = 19.sp
-                    )
-                    // Date text
-                    Text(
-                        text = "${articleData.date}",
-                        modifier = Modifier.padding(vertical = 6.dp),
-                        fontSize = 12.sp,
-                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
-                    )
-                    // Content text
-                    Text(
-                        text = "${articleData.content}",
-                        fontSize = 14.sp
-                    )
-                }
-            }
+            Text(
+                text = article.date,
+                modifier = Modifier.padding(vertical = 6.dp),
+                fontSize = 12.sp,
+                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+            )
+            Text(
+                text = article.content,
+                fontSize = 14.sp
+            )
         }
     }
 }
@@ -236,46 +218,6 @@ fun surfaceColor(): Color {
     }
 }
 
-// Preview function for the ArticleComposable
-@Preview(showBackground = true)
-@Composable
-fun ArticleComposablePreview() {
-    UITNotifyTheme {
-        ArticleComposable(url = "https://student.uit.edu.vn/thong-bao-chung", index = 0)
-    }
-}
-
-// Function to fetch article text from a URL
-suspend fun getArticleText(url: String, index: Int): ArticleData = withContext(Dispatchers.IO) {
-    try {
-        val doc = Jsoup.connect(url).get()
-        val articles = doc.select("article")
-        var article: Element? = null
-        if (index < articles.size) {
-            article = articles[index]
-        }
-        val subheader = article?.selectFirst("h2")
-        val articleAbout = article?.attr("about")
-        val articleUrl = "https://student.uit.edu.vn$articleAbout"
-        val articleDoc = Jsoup.connect(articleUrl).get()
-        val contentBody = articleDoc.getElementsByClass("content-body")
-        val dateSpan = articleDoc.selectFirst("span[property='dc:date dc:created']")
-        val dateContent = dateSpan?.text()
-        val content = contentBody.select("p")
-        val paragraph = content.joinToString("\n") { it.text() }
-
-        // Return the article data
-        ArticleData(
-            header = subheader?.text(),
-            date = dateContent,
-            url = articleUrl,
-            content = paragraph
-        )
-    } catch (e: Exception) {
-        ArticleData(error = e.message)
-    }
-}
-
 // Function to open a URL in the default browser
 fun openUrlInBrowser(context: Context, url: String) {
     Log.d("OpenUrl", "Attempting to open URL: $url")
@@ -288,4 +230,10 @@ fun openUrlInBrowser(context: Context, url: String) {
         Log.e("OpenUrl", "No activity found to handle URL: $url")
 
     }
+}
+
+fun schedulePeriodicArticleDownload(context: Context) {
+    val periodicWorkRequest = PeriodicWorkRequest.Builder(ArticleWorker::class.java, 15, TimeUnit.MINUTES).build()
+
+    WorkManager.getInstance(context).enqueue(periodicWorkRequest)
 }
