@@ -8,14 +8,12 @@ import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat.startActivity
 import androidx.work.Constraints
 import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequest
 import androidx.work.WorkManager
-import com.example.uitnotify.ui.theme.MainScreen
 import com.example.uitnotify.ui.theme.UITNotifyTheme
 import java.util.concurrent.TimeUnit
 
@@ -49,7 +47,7 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.RequestPermission()
     ) { isGranted: Boolean ->
         if (isGranted) {
-            sendNotification(this, "Permission Granted", "Message")
+            Log.d("MainActivity", "Permission granted")
         } else {
             Log.d("MainActivity", "Permission denied")
         }
