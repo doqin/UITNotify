@@ -52,25 +52,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat.startActivity
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.work.OneTimeWorkRequest
 import androidx.work.PeriodicWorkRequest
 import androidx.work.WorkManager
 import com.example.uitnotify.ui.theme.UITNotifyTheme
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
 import java.util.concurrent.TimeUnit
-
-// Data class to hold article information
-data class ArticleData(
-    val header: String? = null,
-    val date: String? = null,
-    val content: String? = null,
-    val url: String? = null,
-    val error: String? = null
-)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -84,7 +78,13 @@ class MainActivity : ComponentActivity() {
             }
         }
         requestNotificationPermission()
-        schedulePeriodicArticleDownload(this)
+        schedulePeriodicArticleDownload()
+    }
+
+    private fun schedulePeriodicArticleDownload() {
+        val periodicWorkRequest = PeriodicWorkRequest.Builder(ArticleWorker::class.java, 1, TimeUnit.HOURS).build()
+
+        WorkManager.getInstance(this).enqueue(periodicWorkRequest)
     }
 
     private val requestPermissionLauncher = registerForActivityResult(
@@ -106,39 +106,42 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun MainScreen() {
-    var articles by remember { mutableStateOf<List<Article>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
     val context = LocalContext.current
+    val articleDao = AppDatabase.getDatabase(context).articleDao()
+
+    var articles by remember { mutableStateOf(emptyList<Article>()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var shouldDownloadArticles by remember { mutableStateOf(false) }
+    var hasError by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        val articleDao = AppDatabase.getDatabase(context).articleDao()
-        var shouldDownloadArticles = false
-        articles = articleDao.getAllArticles()
-        withContext(Dispatchers.IO) {
+        isLoading = true
+        hasError = false
+        launch(Dispatchers.IO) {
             try {
-                val allArticles = articleDao.getAllArticles()
-                if (allArticles.isEmpty()) {
-                    shouldDownloadArticles = true
-                } else {
-                    articles = allArticles
+                articleDao.getAllArticles().collect {
+                    articles = it
                 }
             } catch (e: Exception) {
                 Log.e("MainActivity", "Error fetching articles", e)
+                hasError = true
+            }
+        }
+        launch(Dispatchers.IO) {
+            var allArticles: List<Article> = emptyList()
+            try {
+                allArticles = articleDao.getAllArticles().first()
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Error fetching articles", e)
+                hasError = true
+            }
+            if (allArticles.isEmpty()) {
+                shouldDownloadArticles = true
             }
         }
         if (shouldDownloadArticles) {
             val oneTimeWorkRequest = OneTimeWorkRequest.Builder(ArticleWorker::class.java).build()
             WorkManager.getInstance(context).enqueue(oneTimeWorkRequest)
-            WorkManager.getInstance(context)
-                .getWorkInfoByIdLiveData(oneTimeWorkRequest.id)
-                .observeForever { workInfo ->
-                if (workInfo != null && workInfo.state
-                        .isFinished) {
-                    launch(Dispatchers.IO) {
-                        articles = articleDao.getAllArticles()
-                    }
-                }
-            }
         }
         isLoading = false
     }
@@ -149,6 +152,10 @@ fun MainScreen() {
             if (isLoading) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
+                }
+            }  else if (hasError) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(text = "An error occurred.")
                 }
             } else if (articles.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -253,10 +260,4 @@ fun openUrlInBrowser(context: Context, url: String) {
         Log.e("OpenUrl", "No activity found to handle URL: $url")
 
     }
-}
-
-fun schedulePeriodicArticleDownload(context: Context) {
-    val periodicWorkRequest = PeriodicWorkRequest.Builder(ArticleWorker::class.java, 15, TimeUnit.MINUTES).build()
-
-    WorkManager.getInstance(context).enqueue(periodicWorkRequest)
 }

@@ -11,6 +11,7 @@ import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import android.content.Context
+import kotlinx.coroutines.flow.Flow
 
 @Entity(tableName = "articles", indices = [androidx.room.Index(value = ["url"], unique = true)])
 data class Article(
@@ -30,7 +31,7 @@ interface ArticleDao {
     suspend fun insertAllArticles(articles: List<Article>)
 
     @Query("SELECT * FROM articles")
-    suspend fun getAllArticles(): List<Article>
+    fun getAllArticles(): Flow<List<Article>>
 
     @Query("DELETE FROM articles")
     suspend fun deleteAllArticles()
