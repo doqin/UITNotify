@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
 import androidx.compose.ui.platform.LocalContext
+import androidx.work.Data
 import androidx.work.Worker
 import androidx.work.WorkerParameters
 import kotlinx.coroutines.Dispatchers
@@ -25,16 +26,21 @@ class ArticleWorker(appContext: Context, workerParams: WorkerParameters) : Worke
     private val sharedPreferences: SharedPreferences = appContext
         .getSharedPreferences("ArticleWorkerPrefs", Context.MODE_PRIVATE)
     private val dateTimeFormatter: DateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
+    private val interval: Long = 5
 
     override fun doWork(): Result {
         Log.d("ArticleWorker", "doWork() started")
         val lastDownloadTime = getLastDownloadTime()
         val now = LocalDateTime.now()
         val timeSinceLastDownload = ChronoUnit.MINUTES.between(lastDownloadTime, now)
-        if (timeSinceLastDownload < 1) {
+        val oneTime = inputData.getBoolean("oneTime", false)
+
+        // Check if enough time has passed since last download
+        if (timeSinceLastDownload < interval && !oneTime) {
             Log.d("ArticleWorker", "doWork: Not enough time has passed since last download. Skipping.")
             return Result.success()
         }
+
         var result: Result = Result.failure()
         try {
             runBlocking {
@@ -43,11 +49,22 @@ class ArticleWorker(appContext: Context, workerParams: WorkerParameters) : Worke
                     Log.d("ArticleWorker", "coroutineScope started")
                     launch {
                         Log.d("ArticleWorker", "launch started")
-                        // articleDao.deleteAllArticles()
-                        // Log.d("ArticleWorker", "deleteAllArticles() completed")
                         val articles = downloadArticles()
                         Log.d("ArticleWorker", "downloadArticle() completed, articles size: ${articles.size}")
-                        sendNotification(applicationContext, "UIT Notify", "Downloaded ${articles.size} articles")
+                        val lastArticleUrl = sharedPreferences.getString("lastArticleUrl", null)
+                        if (articles.isNotEmpty()) {
+                            val firstArticle = articles[0]
+                            if (!lastArticleUrl.equals(firstArticle.url)) {
+                                sendNotification(
+                                    applicationContext,
+                                    firstArticle.header,
+                                    firstArticle.content,
+                                    firstArticle.url
+                                )
+                                sharedPreferences.edit().putString("lastArticleUrl", firstArticle.url).apply()
+                            }
+                        }
+
                         saveArticlesToDatabase(articles)
                         Log.d("ArticleWorker", "saveArticlesToDatabase() completed")
                         saveLastDownloadTime(now)
@@ -79,8 +96,15 @@ class ArticleWorker(appContext: Context, workerParams: WorkerParameters) : Worke
             val document: Document = Jsoup.connect(url).get()
             Log.d("ArticleWorker", "Jsoup connected to $url")
             val articleElements: List<Element> = document.select("article")
-            Log.d("ArticleWorker", "Found ${articleElements.size} article elements")
-            for (articleElement in articleElements) {
+            val totalArticles = articleElements.size
+            Log.d("ArticleWorker", "Found $totalArticles article elements")
+            for ((index, articleElement) in articleElements.withIndex()) {
+                val progress = (index + 1f) / totalArticles
+                Log.d("ArticleWorker", "Progress: $progress%")
+                val data = Data.Builder()
+                    .putFloat("progress", progress)
+                    .build()
+                setProgressAsync(data)
                 val header = articleElement.select("h2").text()
                 val articleAbout = articleElement.attr("about")
                 val articleUrl = "https://student.uit.edu.vn$articleAbout"

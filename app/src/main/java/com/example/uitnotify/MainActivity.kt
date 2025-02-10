@@ -49,7 +49,7 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.RequestPermission()
     ) { isGranted: Boolean ->
         if (isGranted) {
-            sendNotification(this, "Permission Granted", "Message")
+            Log.d("MainActivity", "Permission granted")
         } else {
             Log.d("MainActivity", "Permission denied")
         }
