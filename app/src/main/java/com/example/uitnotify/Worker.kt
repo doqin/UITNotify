@@ -21,8 +21,6 @@ import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 
 class ArticleWorker(appContext: Context, workerParams: WorkerParameters) : Worker(appContext, workerParams) {
-
-    private val articleDao = AppDatabase.getDatabase(applicationContext).articleDao()
     private val sharedPreferences: SharedPreferences = appContext
         .getSharedPreferences("ArticleWorkerPrefs", Context.MODE_PRIVATE)
     private val dateTimeFormatter: DateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
@@ -100,7 +98,7 @@ class ArticleWorker(appContext: Context, workerParams: WorkerParameters) : Worke
             Log.d("ArticleWorker", "Found $totalArticles article elements")
             for ((index, articleElement) in articleElements.withIndex()) {
                 val progress = (index + 1f) / totalArticles
-                Log.d("ArticleWorker", "Progress: $progress%")
+                Log.d("ArticleWorker", "Progress: ${progress * 100}%")
                 val data = Data.Builder()
                     .putFloat("progress", progress)
                     .build()

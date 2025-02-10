@@ -11,6 +11,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat.startActivity
 import androidx.work.Constraints
+import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequest
 import androidx.work.WorkManager
@@ -34,13 +35,21 @@ class MainActivity : ComponentActivity() {
 
     private fun schedulePeriodicArticleDownload() {
         val constraints = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.UNMETERED)
+            .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
 
-        val periodicWorkRequest = PeriodicWorkRequest.Builder(ArticleWorker::class.java, 15, TimeUnit.MINUTES)
-            .setConstraints(constraints).build()
+        val periodicWorkRequest = PeriodicWorkRequest.Builder(
+            ArticleWorker::class.java,
+            15,
+            TimeUnit.MINUTES
+        ).setConstraints(constraints).build()
 
-        WorkManager.getInstance(this).enqueue(periodicWorkRequest)
+        WorkManager.getInstance(this)
+            .enqueueUniquePeriodicWork(
+                "ArticleUpdate",
+                ExistingPeriodicWorkPolicy.KEEP,
+                periodicWorkRequest
+            )
     }
 
     private val requestPermissionLauncher = registerForActivityResult(
