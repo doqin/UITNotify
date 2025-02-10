@@ -16,7 +16,7 @@ fun createNotificationChannel(context: Context) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
         val name = "Article Channel"
         val descriptionText = "Channel for articles"
-        val importance = NotificationManager.IMPORTANCE_DEFAULT
+        val importance = NotificationManager.IMPORTANCE_HIGH
         val channel = NotificationChannel("article_channel", name, importance)
             .apply {
                 description = descriptionText

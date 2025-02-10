@@ -52,10 +52,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat.startActivity
+import androidx.work.OneTimeWorkRequest
 import androidx.work.PeriodicWorkRequest
 import androidx.work.WorkManager
 import com.example.uitnotify.ui.theme.UITNotifyTheme
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
@@ -75,6 +77,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         // enableEdgeToEdge()
         createNotificationChannel(this)
+
         setContent {
             UITNotifyTheme {
                 MainScreen()
@@ -109,12 +112,32 @@ fun MainScreen() {
 
     LaunchedEffect(Unit) {
         val articleDao = AppDatabase.getDatabase(context).articleDao()
+        var shouldDownloadArticles = false
         articles = articleDao.getAllArticles()
         withContext(Dispatchers.IO) {
             try {
-                articles = articleDao.getAllArticles()
+                val allArticles = articleDao.getAllArticles()
+                if (allArticles.isEmpty()) {
+                    shouldDownloadArticles = true
+                } else {
+                    articles = allArticles
+                }
             } catch (e: Exception) {
                 Log.e("MainActivity", "Error fetching articles", e)
+            }
+        }
+        if (shouldDownloadArticles) {
+            val oneTimeWorkRequest = OneTimeWorkRequest.Builder(ArticleWorker::class.java).build()
+            WorkManager.getInstance(context).enqueue(oneTimeWorkRequest)
+            WorkManager.getInstance(context)
+                .getWorkInfoByIdLiveData(oneTimeWorkRequest.id)
+                .observeForever { workInfo ->
+                if (workInfo != null && workInfo.state
+                        .isFinished) {
+                    launch(Dispatchers.IO) {
+                        articles = articleDao.getAllArticles()
+                    }
+                }
             }
         }
         isLoading = false
@@ -214,7 +237,7 @@ fun surfaceColor(): Color {
         Color(0x0DFFFFFF)
     }
     else {
-        Color(0x0D000000)
+        Color(0xFFFFFFFF)
     }
 }
 

@@ -12,7 +12,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import android.content.Context
 
-@Entity(tableName = "articles")
+@Entity(tableName = "articles", indices = [androidx.room.Index(value = ["url"], unique = true)])
 data class Article(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     @ColumnInfo(name = "header") val header: String,
@@ -31,9 +31,12 @@ interface ArticleDao {
 
     @Query("SELECT * FROM articles")
     suspend fun getAllArticles(): List<Article>
+
+    @Query("DELETE FROM articles")
+    suspend fun deleteAllArticles()
 }
 
-@Database(entities = [Article::class], version = 1)
+@Database(entities = [Article::class], version = 2)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun articleDao(): ArticleDao
 
@@ -47,7 +50,7 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "app_database"
-                ).build()
+                ).fallbackToDestructiveMigration().build()
                 INSTANCE = instance
                 instance
             }
