@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.preference.PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+  <EditTextPreference
+      android:key="interval_preference"
+      android:title="Interval"
+      android:summary="Set the interval in the minutes"
+      android:defaultValue="15"
+      android:inputType="number"
+      android:dialogTitle="Set Interval" />
+</androidx.preference.PreferenceScreen>

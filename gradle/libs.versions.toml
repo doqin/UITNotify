@@ -15,6 +15,7 @@ room = "2.6.1"
 roomCommon = "2.6.1"
 roomKtx = "2.6.1"
 ksp = "2.0.0-1.0.24"
+preference = "1.2.1"
 
 [libraries]
 room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
@@ -37,6 +38,7 @@ androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx"
 androidx-compose-foundation = { group = "androidx.wear.compose", name = "compose-foundation", version.ref = "composeFoundation" }
 androidx-room-common = { group = "androidx.room", name = "room-common", version.ref = "roomCommon" }
 androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "roomKtx" }
+androidx-preference-ktx = { group = "androidx.preference", name = "preference-ktx", version.ref = "preference" }
 
 [plugins]
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }

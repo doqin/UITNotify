@@ -12,8 +12,7 @@ import android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
-import androidx.work.Data
-import androidx.work.ListenableWorker.Result
+import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -38,6 +37,7 @@ class ArticleForegroundService : Service() {
     companion object {
         const val CHANNEL_ID = "ArticleServiceChannel"
         const val NOTIFICATION_ID = 1
+        const val STOP_SERVICE_ACTION = "com.example.uitnotify.STOP_SERVICE"
     }
 
     override fun onCreate() {
@@ -114,6 +114,8 @@ class ArticleForegroundService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         serviceJob.cancel()
+        Log.d("ArticleForegroundService", "Service is destroyed")
+        sharedPreferences.edit().putBoolean("serviceStarted", false).apply()
     }
 
     override fun onBind(intent: Intent?): IBinder? {
@@ -139,11 +141,32 @@ class ArticleForegroundService : Service() {
             PendingIntent.FLAG_IMMUTABLE
         )
 
-        return Notification.Builder(this, CHANNEL_ID)
+        val stopServiceIntent = Intent(this,
+            StopServiceReceiver::class.java).apply() {
+                action = STOP_SERVICE_ACTION
+        }
+
+        val stopServicePendingIntent = PendingIntent
+            .getBroadcast(
+                this,
+                0,
+                stopServiceIntent,
+                PendingIntent.FLAG_IMMUTABLE
+            )
+
+        val stopAction = NotificationCompat.Action
+            .Builder(
+            R.drawable.ic_launcher_foreground,
+            "Stop",
+            stopServicePendingIntent
+        ).build()
+
+        return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Article Service")
             .setContentText("Fetching articles in the background")
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentIntent(pendingIntent)
+            .addAction(stopAction)
             .build()
     }
 
@@ -158,7 +181,7 @@ class ArticleForegroundService : Service() {
             val articleElements: List<Element> = document.select("article")
             val totalArticles = articleElements.size
             Log.d("ArticleService", "Found $totalArticles article elements")
-            for ((index, articleElement) in articleElements.withIndex()) {
+            for (articleElement in articleElements) {
                 val header = articleElement.select("h2").text()
                 val articleAbout = articleElement.attr("about")
                 val articleUrl = "https://student.uit.edu.vn$articleAbout"

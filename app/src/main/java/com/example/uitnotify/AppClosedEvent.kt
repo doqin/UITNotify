@@ -33,6 +33,12 @@ class AppLifecycleTracker(private val application: Application) :
 
     override fun onActivityResumed(activity: Activity) {
         Log.d("AppLifecycleTracker", "onActivityResumed")
+        if (sharedPreferences.getBoolean("serviceStarted", false)) {
+            Log.d("AppLifecycleTracker", "Stopping ArticleForegroundService")
+            val serviceIntent = Intent(application, ArticleForegroundService::class.java)
+            application.stopService(serviceIntent)
+            sharedPreferences.edit().putBoolean("serviceStarted", false).apply()
+        }
     }
 
     override fun onActivityPaused(activity: Activity) {
