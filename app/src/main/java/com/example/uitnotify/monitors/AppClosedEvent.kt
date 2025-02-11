@@ -1,4 +1,4 @@
-package com.example.uitnotify
+package com.example.uitnotify.monitors
 
 import android.app.Activity
 import android.app.Application
@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
+import com.example.uitnotify.service.ArticleForegroundService
 
 class AppLifecycleTracker(private val application: Application) :
     Application.ActivityLifecycleCallbacks {

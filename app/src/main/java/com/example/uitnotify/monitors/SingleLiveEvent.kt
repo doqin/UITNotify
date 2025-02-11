@@ -1,4 +1,4 @@
-package com.example.uitnotify
+package com.example.uitnotify.monitors
 
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LiveData

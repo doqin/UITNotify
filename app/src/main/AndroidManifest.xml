@@ -53,13 +53,20 @@
             </intent-filter>
         </activity>
 
+        <provider
+            android:authorities="${applicationId}.androidx-startup"
+            android:name="androidx.startup.InitializationProvider"
+            tools:node="remove"/>
+
         <service
-            android:name=".ArticleForegroundService"
+            android:name=".service.ArticleForegroundService"
             android:foregroundServiceType="dataSync"
             android:exported="false"/>
-        <receiver android:name=".AppClosedReceiver"
+
+        <receiver android:name=".monitors.AppClosedReceiver"
             android:exported="false"/>
-        <receiver android:name=".StopServiceReceiver"
+
+        <receiver android:name=".monitors.StopServiceReceiver"
             android:exported="false"/>
     </application>
 

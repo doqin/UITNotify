@@ -4,6 +4,12 @@ import android.app.Application
 import android.content.Intent
 import androidx.core.content.ContextCompat
 import androidx.work.Configuration
+import com.example.uitnotify.data.SettingsRepository
+import com.example.uitnotify.data.dataStore
+import com.example.uitnotify.monitors.AppClosedEvent
+import com.example.uitnotify.monitors.AppLifecycleTracker
+import com.example.uitnotify.service.ArticleForegroundService
+import com.example.uitnotify.workers.AppWorkerFactory
 
 class App : Application(), Configuration.Provider {
     private lateinit var settingsRepository: SettingsRepository

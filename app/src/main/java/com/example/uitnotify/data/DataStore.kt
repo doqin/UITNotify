@@ -1,4 +1,4 @@
-package com.example.uitnotify
+package com.example.uitnotify.data
 
 import android.content.Context
 import androidx.datastore.core.DataStore

@@ -1,9 +1,10 @@
-package com.example.uitnotify
+package com.example.uitnotify.workers
 
 import android.content.Context
 import androidx.work.ListenableWorker
 import androidx.work.WorkerFactory
 import androidx.work.WorkerParameters
+import com.example.uitnotify.data.SettingsRepository
 
 class AppWorkerFactory (private val settingsRepository: SettingsRepository)
     : WorkerFactory() {

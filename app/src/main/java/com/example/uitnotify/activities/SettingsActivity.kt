@@ -3,7 +3,7 @@ package com.example.uitnotify.activities
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import com.example.uitnotify.SettingsScreen
+import com.example.uitnotify.composables.SettingsScreen
 import com.example.uitnotify.ui.theme.UITNotifyTheme
 
 class SettingsActivity : ComponentActivity() {

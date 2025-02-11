@@ -16,13 +16,13 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequest
 import androidx.work.WorkManager
-import com.example.uitnotify.ArticleWorker
-import com.example.uitnotify.MainScreen
-import com.example.uitnotify.SettingsRepository
-import com.example.uitnotify.createNotificationChannel
-import com.example.uitnotify.dataStore
+import com.example.uitnotify.workers.ArticleWorker
+import com.example.uitnotify.composables.MainScreen
+import com.example.uitnotify.data.SettingsRepository
+import com.example.uitnotify.notifications.createNotificationChannel
+import com.example.uitnotify.data.dataStore
 import com.example.uitnotify.ui.theme.UITNotifyTheme
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 
@@ -39,29 +39,36 @@ class MainActivity : ComponentActivity() {
             }
         }
         requestNotificationPermission()
-        schedulePeriodicArticleDownload()
+        observeIntervalChanges()
     }
 
-    private fun schedulePeriodicArticleDownload() {
+    private fun observeIntervalChanges() {
         lifecycleScope.launch {
-            val interval = settingsRepository.getInterval().first()
-            val constraints = Constraints.Builder()
-                .setRequiredNetworkType(NetworkType.CONNECTED)
-                .build()
-
-            val periodicWorkRequest = PeriodicWorkRequest.Builder(
-                ArticleWorker::class.java,
-                interval,
-                TimeUnit.MINUTES
-            ).setConstraints(constraints).build()
-
-            WorkManager.getInstance(this@MainActivity)
-                .enqueueUniquePeriodicWork(
-                    "ArticleUpdate",
-                    ExistingPeriodicWorkPolicy.KEEP,
-                    periodicWorkRequest
-                )
+            settingsRepository.getInterval().collectLatest { interval ->
+                Log.d("MainActivity",
+                    "Observed interval change: interval = $interval")
+                schedulePeriodicArticleDownload(interval)
+            }
         }
+    }
+
+    private fun schedulePeriodicArticleDownload(interval: Long) {
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
+
+        val periodicWorkRequest = PeriodicWorkRequest.Builder(
+            ArticleWorker::class.java,
+            interval,
+            TimeUnit.MINUTES
+        ).setConstraints(constraints).build()
+
+        WorkManager.getInstance(this@MainActivity)
+            .enqueueUniquePeriodicWork(
+                "ArticleUpdate",
+                ExistingPeriodicWorkPolicy.KEEP,
+                periodicWorkRequest
+            )
     }
 
     private val requestPermissionLauncher = registerForActivityResult(

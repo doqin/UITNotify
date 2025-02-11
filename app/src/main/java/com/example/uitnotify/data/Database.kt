@@ -1,4 +1,4 @@
-package com.example.uitnotify
+package com.example.uitnotify.data
 
 import androidx.room.ColumnInfo
 import androidx.room.Dao

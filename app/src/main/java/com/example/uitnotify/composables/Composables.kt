@@ -1,10 +1,9 @@
-package com.example.uitnotify
+package com.example.uitnotify.composables
 
 import android.content.Context
 import android.content.Intent
 import android.util.Log
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -19,7 +18,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.ripple.rememberRipple
@@ -35,7 +33,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarColors
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -64,7 +61,12 @@ import java.util.UUID
 import androidx.work.Data
 import com.example.uitnotify.activities.SettingsActivity
 import com.example.uitnotify.activities.openUrlInBrowser
+import com.example.uitnotify.data.AppDatabase
+import com.example.uitnotify.data.Article
+import com.example.uitnotify.data.SettingsRepository
+import com.example.uitnotify.data.dataStore
 import com.example.uitnotify.options.IntervalOption
+import com.example.uitnotify.workers.ArticleWorker
 
 @Composable
 fun MainScreen() {
@@ -282,7 +284,7 @@ fun SettingsTopBar(activity: ComponentActivity) {
 
 @Composable
 fun IntervalPreference(settingsRepository: SettingsRepository) {
-    var coroutineScope = rememberCoroutineScope()
+    val coroutineScope = rememberCoroutineScope()
     val currentInterval by settingsRepository
         .getInterval()
         .collectAsState(initial = IntervalOption.FIFTEEN_MINUTES)
