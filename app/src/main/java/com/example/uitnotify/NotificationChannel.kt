@@ -8,10 +8,10 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.Build
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import com.example.uitnotify.activities.MainActivity
 
 fun createNotificationChannel(context: Context) {
     val name = "Article Channel"

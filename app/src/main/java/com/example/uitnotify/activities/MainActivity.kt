@@ -1,4 +1,4 @@
-package com.example.uitnotify
+package com.example.uitnotify.activities
 
 import android.content.Context
 import android.content.Intent
@@ -15,6 +15,9 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequest
 import androidx.work.WorkManager
+import com.example.uitnotify.ArticleWorker
+import com.example.uitnotify.MainScreen
+import com.example.uitnotify.createNotificationChannel
 import com.example.uitnotify.ui.theme.UITNotifyTheme
 import java.util.concurrent.TimeUnit
 
@@ -23,7 +26,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         // enableEdgeToEdge()
         createNotificationChannel(this)
-
         setContent {
             UITNotifyTheme {
                 MainScreen()

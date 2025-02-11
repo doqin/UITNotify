@@ -13,6 +13,7 @@ import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import com.example.uitnotify.activities.MainActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -31,7 +32,7 @@ class ArticleForegroundService : Service() {
     private lateinit var sharedPreferences: SharedPreferences
     private val serviceJob = Job()
     private val serviceScope = CoroutineScope(Dispatchers.IO + serviceJob)
-    private val interval: Long = 15
+    private var interval: Long = 15
     private lateinit var articleDao: ArticleDao
 
     companion object {
@@ -46,8 +47,9 @@ class ArticleForegroundService : Service() {
         createNotificationChannel()
         articleDao = AppDatabase.getDatabase(applicationContext).articleDao()
         sharedPreferences = appContext
-            .getSharedPreferences("ArticleForegroundServicePrefs",
+            .getSharedPreferences("AppPrefs",
                 Context.MODE_PRIVATE)
+        loadIntervalFromPreferences()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -168,6 +170,12 @@ class ArticleForegroundService : Service() {
             .setContentIntent(pendingIntent)
             .addAction(stopAction)
             .build()
+    }
+
+    private fun loadIntervalFromPreferences() {
+        val intervalString = sharedPreferences.getString("interval_preference", "15")
+        interval = intervalString?.toLongOrNull() ?: 15
+        Log.d("ArticleForeGroundService", "Interval loaded from preferences: $interval")
     }
 
     private suspend fun downloadArticles(): List<Article> = withContext(Dispatchers.IO) {
