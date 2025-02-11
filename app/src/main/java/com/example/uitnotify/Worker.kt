@@ -3,11 +3,13 @@ package com.example.uitnotify
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
+import androidx.work.CoroutineWorker
 import androidx.work.Data
 import androidx.work.Worker
 import androidx.work.WorkerParameters
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -19,14 +21,21 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 
-class ArticleWorker(appContext: Context, workerParams: WorkerParameters) : Worker(appContext, workerParams) {
-    private val sharedPreferences: SharedPreferences = appContext
+class ArticleWorker(
+    private val context: Context,
+    workerParams: WorkerParameters,
+    private val settingsRepository: SettingsRepository
+) : CoroutineWorker(context, workerParams) {
+
+    private val sharedPreferences: SharedPreferences = context
         .getSharedPreferences("ArticleWorkerPrefs", Context.MODE_PRIVATE)
     private val dateTimeFormatter: DateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
-    private val interval: Long = 5
 
-    override fun doWork(): Result {
+    override suspend fun doWork(): Result {
         Log.d("ArticleWorker", "doWork() started")
+        val interval = runBlocking {
+            settingsRepository.getInterval().first()
+        }
         val lastDownloadTime = getLastDownloadTime()
         val now = LocalDateTime.now()
         val timeSinceLastDownload = ChronoUnit.MINUTES.between(lastDownloadTime, now)
@@ -61,7 +70,6 @@ class ArticleWorker(appContext: Context, workerParams: WorkerParameters) : Worke
                                 sharedPreferences.edit().putString("lastArticleUrl", firstArticle.url).apply()
                             }
                         }
-
                         saveArticlesToDatabase(articles)
                         Log.d("ArticleWorker", "saveArticlesToDatabase() completed")
                         saveLastDownloadTime(now)

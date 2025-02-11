@@ -16,6 +16,8 @@ roomCommon = "2.6.1"
 roomKtx = "2.6.1"
 ksp = "2.0.0-1.0.24"
 preference = "1.2.1"
+datastoreCoreAndroid = "1.1.2"
+datastore-preferences = "1.1.2"
 
 [libraries]
 room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
@@ -39,6 +41,8 @@ androidx-compose-foundation = { group = "androidx.wear.compose", name = "compose
 androidx-room-common = { group = "androidx.room", name = "room-common", version.ref = "roomCommon" }
 androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "roomKtx" }
 androidx-preference-ktx = { group = "androidx.preference", name = "preference-ktx", version.ref = "preference" }
+androidx-datastore-core-android = { group = "androidx.datastore", name = "datastore-core-android", version.ref = "datastoreCoreAndroid" }
+androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore-preferences" }
 
 [plugins]
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }

@@ -10,6 +10,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat.startActivity
+import androidx.lifecycle.lifecycleScope
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
@@ -17,13 +18,19 @@ import androidx.work.PeriodicWorkRequest
 import androidx.work.WorkManager
 import com.example.uitnotify.ArticleWorker
 import com.example.uitnotify.MainScreen
+import com.example.uitnotify.SettingsRepository
 import com.example.uitnotify.createNotificationChannel
+import com.example.uitnotify.dataStore
 import com.example.uitnotify.ui.theme.UITNotifyTheme
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 
 class MainActivity : ComponentActivity() {
+    private lateinit var settingsRepository: SettingsRepository
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        settingsRepository = SettingsRepository(dataStore)
         // enableEdgeToEdge()
         createNotificationChannel(this)
         setContent {
@@ -36,22 +43,25 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun schedulePeriodicArticleDownload() {
-        val constraints = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.CONNECTED)
-            .build()
+        lifecycleScope.launch {
+            val interval = settingsRepository.getInterval().first()
+            val constraints = Constraints.Builder()
+                .setRequiredNetworkType(NetworkType.CONNECTED)
+                .build()
 
-        val periodicWorkRequest = PeriodicWorkRequest.Builder(
-            ArticleWorker::class.java,
-            15,
-            TimeUnit.MINUTES
-        ).setConstraints(constraints).build()
+            val periodicWorkRequest = PeriodicWorkRequest.Builder(
+                ArticleWorker::class.java,
+                interval,
+                TimeUnit.MINUTES
+            ).setConstraints(constraints).build()
 
-        WorkManager.getInstance(this)
-            .enqueueUniquePeriodicWork(
-                "ArticleUpdate",
-                ExistingPeriodicWorkPolicy.KEEP,
-                periodicWorkRequest
-            )
+            WorkManager.getInstance(this@MainActivity)
+                .enqueueUniquePeriodicWork(
+                    "ArticleUpdate",
+                    ExistingPeriodicWorkPolicy.KEEP,
+                    periodicWorkRequest
+                )
+        }
     }
 
     private val requestPermissionLauncher = registerForActivityResult(
