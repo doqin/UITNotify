@@ -1,13 +1,21 @@
-package com.example.uitnotify
+package com.example.uitnotify.workers
 
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
+import androidx.work.CoroutineWorker
 import androidx.work.Data
-import androidx.work.Worker
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequest
+import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import com.example.uitnotify.data.AppDatabase
+import com.example.uitnotify.data.Article
+import com.example.uitnotify.data.SettingsRepository
+import com.example.uitnotify.notifications.sendNotification
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -18,15 +26,25 @@ import java.io.IOException
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
+import java.util.concurrent.TimeUnit
 
-class ArticleWorker(appContext: Context, workerParams: WorkerParameters) : Worker(appContext, workerParams) {
-    private val sharedPreferences: SharedPreferences = appContext
+class ArticleWorker(
+    private val context: Context,
+    workerParams: WorkerParameters,
+    private val settingsRepository: SettingsRepository
+) : CoroutineWorker(context, workerParams) {
+
+    private val sharedPreferences: SharedPreferences = context
         .getSharedPreferences("ArticleWorkerPrefs", Context.MODE_PRIVATE)
     private val dateTimeFormatter: DateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
-    private val interval: Long = 5
 
-    override fun doWork(): Result {
+    override suspend fun doWork(): Result {
         Log.d("ArticleWorker", "doWork() started")
+        val interval = runBlocking {
+            settingsRepository.getInterval().first()
+        }
+        // Re-schedule the periodic download
+        schedulePeriodicArticleDownload(interval)
         val lastDownloadTime = getLastDownloadTime()
         val now = LocalDateTime.now()
         val timeSinceLastDownload = ChronoUnit.MINUTES.between(lastDownloadTime, now)
@@ -61,7 +79,6 @@ class ArticleWorker(appContext: Context, workerParams: WorkerParameters) : Worke
                                 sharedPreferences.edit().putString("lastArticleUrl", firstArticle.url).apply()
                             }
                         }
-
                         saveArticlesToDatabase(articles)
                         Log.d("ArticleWorker", "saveArticlesToDatabase() completed")
                         saveLastDownloadTime(now)
@@ -147,6 +164,21 @@ class ArticleWorker(appContext: Context, workerParams: WorkerParameters) : Worke
     private fun saveLastDownloadTime(time: LocalDateTime) {
         val timeString = time.format(dateTimeFormatter)
         sharedPreferences.edit().putString("lastDownloadTime", timeString).apply()
+    }
+
+    private fun schedulePeriodicArticleDownload(interval: Long) {
+        val periodicWorkRequest = PeriodicWorkRequest.Builder(
+            ArticleWorker::class.java,
+            interval,
+            TimeUnit.MINUTES
+        ).build()
+
+        WorkManager.getInstance(context)
+            .enqueueUniquePeriodicWork(
+                "ArticleUpdate",
+                ExistingPeriodicWorkPolicy.UPDATE,
+                periodicWorkRequest
+            )
     }
 }
 

@@ -1,4 +1,4 @@
-package com.example.uitnotify
+package com.example.uitnotify.service
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -13,11 +13,21 @@ import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import com.example.uitnotify.R
+import com.example.uitnotify.monitors.StopServiceReceiver
+import com.example.uitnotify.activities.MainActivity
+import com.example.uitnotify.data.AppDatabase
+import com.example.uitnotify.data.Article
+import com.example.uitnotify.data.ArticleDao
+import com.example.uitnotify.data.SettingsRepository
+import com.example.uitnotify.data.dataStore
+import com.example.uitnotify.notifications.sendNotification
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -29,9 +39,9 @@ import java.io.IOException
 class ArticleForegroundService : Service() {
     private lateinit var appContext: Context
     private lateinit var sharedPreferences: SharedPreferences
+    private lateinit var settingsRepository: SettingsRepository
     private val serviceJob = Job()
     private val serviceScope = CoroutineScope(Dispatchers.IO + serviceJob)
-    private val interval: Long = 15
     private lateinit var articleDao: ArticleDao
 
     companion object {
@@ -46,8 +56,10 @@ class ArticleForegroundService : Service() {
         createNotificationChannel()
         articleDao = AppDatabase.getDatabase(applicationContext).articleDao()
         sharedPreferences = appContext
-            .getSharedPreferences("ArticleForegroundServicePrefs",
+            .getSharedPreferences("AppPrefs",
                 Context.MODE_PRIVATE)
+        settingsRepository = SettingsRepository(dataStore)
+        // loadIntervalFromPreferences()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -101,6 +113,7 @@ class ArticleForegroundService : Service() {
                     }
                     Log.d("ArticleService", "doWork() finished")
                     Log.d("ArticleService", "Before delay()")
+                    val interval = settingsRepository.getInterval().first()
                     delay(interval * 60 * 1000)
                     Log.d("ArticleService", "After delay()")
                 }
@@ -156,7 +169,7 @@ class ArticleForegroundService : Service() {
 
         val stopAction = NotificationCompat.Action
             .Builder(
-            R.drawable.ic_launcher_foreground,
+                R.mipmap.ic_launcher,
             "Stop",
             stopServicePendingIntent
         ).build()

@@ -1,4 +1,4 @@
-package com.example.uitnotify
+package com.example.uitnotify.notifications
 
 import android.Manifest
 import android.app.NotificationChannel
@@ -8,10 +8,11 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.Build
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import com.example.uitnotify.R
+import com.example.uitnotify.activities.MainActivity
 
 fun createNotificationChannel(context: Context) {
     val name = "Article Channel"
@@ -52,7 +53,7 @@ fun sendNotification(context: Context, title: String, message: String, url: Stri
 
     // Builds the notification
     val builder = NotificationCompat.Builder(context, "article_channel")
-        .setSmallIcon(R.drawable.ic_launcher_foreground)
+        .setSmallIcon(R.mipmap.ic_launcher)
         .setContentTitle(title)
         .setContentText(message)
         .setPriority(NotificationCompat.PRIORITY_HIGH)

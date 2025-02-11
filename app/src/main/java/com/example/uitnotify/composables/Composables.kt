@@ -1,28 +1,44 @@
-package com.example.uitnotify
+package com.example.uitnotify.composables
 
+import android.content.Context
+import android.content.Intent
 import android.util.Log
-import androidx.compose.foundation.background
+import androidx.activity.ComponentActivity
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.ripple.rememberRipple
-import androidx.compose.material3.Button
+import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -39,11 +55,18 @@ import androidx.compose.ui.unit.sp
 import androidx.work.OneTimeWorkRequest
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.util.UUID
 import androidx.work.Data
+import com.example.uitnotify.activities.SettingsActivity
+import com.example.uitnotify.activities.openUrlInBrowser
+import com.example.uitnotify.data.AppDatabase
+import com.example.uitnotify.data.Article
+import com.example.uitnotify.data.SettingsRepository
+import com.example.uitnotify.data.dataStore
+import com.example.uitnotify.options.IntervalOption
+import com.example.uitnotify.workers.ArticleWorker
 
 @Composable
 fun MainScreen() {
@@ -57,7 +80,7 @@ fun MainScreen() {
     var hasError by remember { mutableStateOf(false) }
     var isInstalling by remember { mutableStateOf(false) }
     var workId: UUID? by remember { mutableStateOf(null) }
-    var progress by remember { mutableStateOf(0f) }
+    var progress by remember { mutableFloatStateOf(0f) }
 
     LaunchedEffect(Unit) {
         isLoading = true
@@ -115,11 +138,10 @@ fun MainScreen() {
         }
     }
 
-    Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-        Column(Modifier.padding(innerPadding)) {
-            BannerComposable(
-                coroutineScope = coroutineScope,
-                articleDao = articleDao,
+    Scaffold(
+        topBar = @Composable {
+            MainTopBar(
+                context = context,
                 onClick = {
                     coroutineScope.launch(Dispatchers.IO) {
                         articleDao.deleteAllArticles()
@@ -127,6 +149,10 @@ fun MainScreen() {
                     }
                 }
             )
+        },
+        modifier = Modifier.fillMaxSize()
+    ) { innerPadding ->
+        Column(Modifier.padding(innerPadding)) {
             if (isLoading) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
@@ -163,6 +189,24 @@ fun MainScreen() {
 }
 
 @Composable
+fun SettingsScreen() {
+    val activity = LocalContext.current as ComponentActivity
+    val context = LocalContext.current
+    val settingsRepository = SettingsRepository(context.dataStore)
+
+    Scaffold(
+        topBar = @Composable {
+            SettingsTopBar(activity)
+        },
+        modifier = Modifier.fillMaxSize()
+    ) { innerPadding ->
+        Column(Modifier.padding(innerPadding)) {
+            IntervalPreference(settingsRepository)
+        }
+    }
+}
+
+@Composable
 fun DynamicDeterminateProgressBar(modifier: Modifier, progress: Float) {
 
     LinearProgressIndicator(
@@ -172,31 +216,119 @@ fun DynamicDeterminateProgressBar(modifier: Modifier, progress: Float) {
     )
 }
 
-// Banner composable function
+// MainActivity TopBar composable function
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BannerComposable(coroutineScope: CoroutineScope, articleDao: ArticleDao, modifier: Modifier = Modifier, onClick: () -> Unit = {}) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(surfaceColor()),
+fun MainTopBar(context: Context, onClick: () -> Unit = {}) {
+    TopAppBar(
+        title = {
+            Text(
+                "UIT Notify",
+                fontFamily = FontFamily.SansSerif,
+                fontWeight = FontWeight.SemiBold
+            )
+        },
+        actions = {
+            // Refresh button
+            IconButton(
+                onClick = onClick
+            ) {
+                Icon(Icons.Filled.Refresh,
+                    contentDescription = "Refresh")
+            }
+            // Settings button
+            IconButton(
+                onClick = {
+                    val intent = Intent(context, SettingsActivity::class.java)
+                    context.startActivity(intent)
+                })  {
+                Icon(Icons.Filled.Settings,
+                    contentDescription = "Settings")
+            }
+        },
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = surfaceColor()
+        )
+    )
+}
+
+// SettingsActivity TopBar composable function
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SettingsTopBar(activity: ComponentActivity) {
+    CenterAlignedTopAppBar(
+        title = {
+            Text(
+                text = "Settings",
+                fontFamily = FontFamily.SansSerif,
+                fontWeight = FontWeight.SemiBold,
+            )
+        },
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = surfaceColor()
+        ),
+        navigationIcon = {
+            IconButton(
+                onClick = {
+                    activity.finish()
+                },
+
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back")
+            }
+        }
+    )
+}
+
+@Composable
+fun IntervalPreference(settingsRepository: SettingsRepository) {
+    val coroutineScope = rememberCoroutineScope()
+    val currentInterval by settingsRepository
+        .getInterval()
+        .collectAsState(initial = IntervalOption.FIFTEEN_MINUTES)
+
+    var expanded by remember { mutableStateOf(false) }
+
+    val currentIntervalOption = IntervalOption.entries.find {
+        it.minutes == currentInterval
+    } ?: IntervalOption.FIFTEEN_MINUTES
+
+    Row(modifier = Modifier
+        .fillMaxWidth()
+        .clickable { expanded = true },
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = "UIT Notify",
-            modifier = Modifier
-                .padding(16.dp)
-                .align(Alignment.CenterStart),
-            fontSize = 24.sp,
-            fontWeight = FontWeight.SemiBold,
-            fontFamily = FontFamily.Default,
-            letterSpacing = 0.1.sp
+            text = "Interval",
+            modifier = Modifier.padding(horizontal = 32.dp)
         )
-        Button(
-            onClick = onClick,
+        Surface (
             modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .padding(16.dp)
-        )   {
-            Text("Refresh")
+                .padding(16.dp),
+            )   {
+            Text(
+                text = currentIntervalOption.label,
+            )
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                IntervalOption.entries.forEach { option ->
+                    DropdownMenuItem(
+                        text = {
+                            Text(option.label)
+                        },
+                        onClick = {
+                            coroutineScope.launch {
+                                settingsRepository.saveInterval(option.minutes)
+                            }
+                            expanded = false
+                        }
+                    )
+                }
+            }
         }
     }
 }

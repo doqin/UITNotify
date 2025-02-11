@@ -1,4 +1,4 @@
-package com.example.uitnotify
+package com.example.uitnotify.activities
 
 import android.content.Context
 import android.content.Intent
@@ -10,41 +10,60 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat.startActivity
+import androidx.lifecycle.lifecycleScope
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequest
 import androidx.work.WorkManager
+import com.example.uitnotify.workers.ArticleWorker
+import com.example.uitnotify.composables.MainScreen
+import com.example.uitnotify.data.SettingsRepository
+import com.example.uitnotify.notifications.createNotificationChannel
+import com.example.uitnotify.data.dataStore
 import com.example.uitnotify.ui.theme.UITNotifyTheme
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 
 class MainActivity : ComponentActivity() {
+    private lateinit var settingsRepository: SettingsRepository
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        settingsRepository = SettingsRepository(dataStore)
         // enableEdgeToEdge()
         createNotificationChannel(this)
-
         setContent {
             UITNotifyTheme {
                 MainScreen()
             }
         }
         requestNotificationPermission()
-        schedulePeriodicArticleDownload()
+        observeIntervalChanges()
     }
 
-    private fun schedulePeriodicArticleDownload() {
+    private fun observeIntervalChanges() {
+        lifecycleScope.launch {
+            settingsRepository.getInterval().collectLatest { interval ->
+                Log.d("MainActivity",
+                    "Observed interval change: interval = $interval")
+                schedulePeriodicArticleDownload(interval)
+            }
+        }
+    }
+
+    private fun schedulePeriodicArticleDownload(interval: Long) {
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
 
         val periodicWorkRequest = PeriodicWorkRequest.Builder(
             ArticleWorker::class.java,
-            15,
+            interval,
             TimeUnit.MINUTES
         ).setConstraints(constraints).build()
 
-        WorkManager.getInstance(this)
+        WorkManager.getInstance(this@MainActivity)
             .enqueueUniquePeriodicWork(
                 "ArticleUpdate",
                 ExistingPeriodicWorkPolicy.KEEP,
